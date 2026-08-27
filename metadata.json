@@ -1,0 +1,6 @@
+
+{
+  "name": "IMPAKTRIX - Impact Analysis Dashboard",
+  "description": "A high-fidelity simulation of the IMPAKTRIX VS Code extension. Detects code changes, builds a universal impact graph across any language, and uses Gemini AI to explain the risk and consequences of modifications.",
+  "requestFramePermissions": []
+}
