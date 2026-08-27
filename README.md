@@ -30,15 +30,22 @@ See the impact before the change. IMPAKTRIX is a universal code impact analysis 
    ```bash
    npm run compile
    ```
-   This will build both the VS Code extension (`out/extension.js`), the React Webview (`out/webview/bundle.js`), and the MCP Server (`out/mcp.js`).
+   This will build the VS Code extension (`out/extension.js`), the React Webview (`out/webview/bundle.js`), and the MCP Server (`out/mcp.js`).
 
-### Testing the VS Code Extension
-1. Open this repository in VS Code.
-2. Press **F5** to launch the Extension Development Host.
-3. Open the **IMPAKTRIX** panel in the sidebar and start modifying code to see the impact.
+## Installation & Usage
 
-### Testing the MCP Server
-If you use an MCP-compatible IDE like Antigravity:
-1. Open your MCP configuration settings.
-2. Import or point to the `mcp_config.json` file located in the root of this repository.
-3. Your AI agent will instantly gain the `analyze_impact` tool.
+### 1. VS Code Extension (Local Install)
+You can permanently install IMPAKTRIX into your own VS Code without publishing it to the public marketplace:
+1. Package the extension into a `.vsix` file:
+   ```bash
+   npx @vscode/vsce package
+   ```
+2. Open VS Code, go to the **Extensions** sidebar.
+3. Click the `...` menu at the top right of the extensions pane and select **"Install from VSIX..."**.
+4. Select the generated `.vsix` file. IMPAKTRIX will now automatically analyze code in any project you open!
+
+### 2. MCP Server (Global AI Agent Integration)
+To give AI agents (like Antigravity or Claude Desktop) access to IMPAKTRIX across *all* your projects:
+1. Copy the `mcp_config.json` file into your global agent configuration directory (e.g., `~/.gemini/config/` for Antigravity).
+2. Edit the copied `mcp_config.json` and replace `${workspaceFolder}/out/mcp.js` with the **absolute path** to the `out/mcp.js` file on your computer.
+3. Restart your AI editor. Your agent now has a permanent `analyze_impact` tool for every project!
