@@ -1,5 +1,5 @@
 
-import { LanguageAdapter } from './BaseAdapter';
+import { LanguageAdapter } from './baseAdapter';
 import { SymbolInfo, UsageInfo, WorkspaceFile } from '../types';
 
 export class UniversalAdapter implements LanguageAdapter {

@@ -6,7 +6,8 @@ import { ImpactExplainer } from './ai/ImpactExplainer';
 export function activate(context: vscode.ExtensionContext) {
   console.log("IMPAKTRIX Extension Activated");
 
-  const engine = new ImpactEngine();
+  const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
+  const engine = new ImpactEngine(workspaceRoot);
   const detector = new ChangeDetector();
   const explainer = new ImpactExplainer();
 

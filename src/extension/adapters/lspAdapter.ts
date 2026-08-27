@@ -1,6 +1,6 @@
 
 // LSP adapter implementation with PascalCase import references.
-import { LanguageAdapter } from './BaseAdapter';
+import { LanguageAdapter } from './baseAdapter';
 import { SymbolInfo, UsageInfo, WorkspaceFile } from '../types';
 
 export class LspAdapter implements LanguageAdapter {
