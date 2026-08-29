@@ -4,12 +4,18 @@ import { ChangeDetector } from './core/changeDetector';
 import { ImpactExplainer } from './ai/ImpactExplainer';
 
 export function activate(context: vscode.ExtensionContext) {
-  console.log("IMPAKTRIX Extension Activated");
+  try {
+    vscode.window.showInformationMessage("IMPAKTRIX is waking up...");
+    console.log("IMPAKTRIX Extension Activated");
 
-  const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
-  const engine = new ImpactEngine(workspaceRoot);
-  const detector = new ChangeDetector();
-  const explainer = new ImpactExplainer();
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
+    let engine: ImpactEngine | null = null;
+    const detector = new ChangeDetector();
+    const explainer = new ImpactExplainer(context.extensionPath);
+    
+    // Create Diagnostic Collection for squiggly lines
+    const diagnosticCollection = vscode.languages.createDiagnosticCollection('impaktrix');
+    context.subscriptions.push(diagnosticCollection);
 
   // Decorator for gutter icon
   const impactDecorationType = vscode.window.createTextEditorDecorationType({
@@ -20,7 +26,10 @@ export function activate(context: vscode.ExtensionContext) {
     isWholeLine: false,
   });
 
-  const provider = new ImpaktrixWebviewProvider(context.extensionUri, engine, explainer);
+    const provider = new ImpaktrixWebviewProvider(context.extensionUri, explainer, () => {
+      if (!engine) engine = new ImpactEngine(workspaceRoot);
+      return engine;
+    });
   
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
@@ -51,16 +60,56 @@ export function activate(context: vscode.ExtensionContext) {
         }
 
         // Analyze and explain
+        if (!engine) engine = new ImpactEngine(workspaceRoot);
         const analysis = engine.analyze(filePath, line);
+
         if (analysis) {
           const ai = await explainer.explain(analysis);
-          const fullResult = { ...analysis, ...ai };
-          // Send to webview
-          provider.sendAnalysis(fullResult);
+          analysis.explanation = ai.explanation;
+          analysis.testSuggestions = ai.testSuggestions;
+          
+          provider.sendAnalysis(analysis);
+          
+          // Show squiggly line and hover diagnostic
+          if (editor) {
+            const range = new vscode.Range(line - 1, 0, line - 1, 100);
+            const diagnostic = new vscode.Diagnostic(
+              range,
+              `IMPAKTRIX: Changed symbol '${analysis.changedSymbol}'. ${analysis.impacts.length} usages affected. Risk: ${analysis.riskScore}\n\nClick to view full impact in sidebar.`,
+              vscode.DiagnosticSeverity.Warning
+            );
+            diagnosticCollection.set(editor.document.uri, [diagnostic]);
+          }
+        } else {
+           if (editor) diagnosticCollection.set(editor.document.uri, []);
         }
       });
     })
   );
+
+  // Add a Hover provider to make the diagnostic more prominent
+  context.subscriptions.push(
+    vscode.languages.registerHoverProvider({ scheme: 'file' }, {
+      provideHover(document, position, token) {
+        const diagnostics = diagnosticCollection.get(document.uri);
+        if (diagnostics) {
+          const diag = diagnostics.find(d => d.range.contains(position));
+          if (diag) {
+            const markdown = new vscode.MarkdownString();
+            markdown.appendMarkdown(`**⚡ IMPAKTRIX Impact Detected**\n\n`);
+            markdown.appendMarkdown(`${diag.message}\n\n`);
+            markdown.appendMarkdown(`*[Open Impact Panel](command:impaktrix.analyze) for details.*`);
+            markdown.isTrusted = true;
+            return new vscode.Hover(markdown);
+          }
+        }
+        return null;
+      }
+    })
+  );
+  } catch (err: any) {
+    vscode.window.showErrorMessage("IMPAKTRIX Activation Error: " + (err.message || String(err)));
+  }
 }
 
 class ImpaktrixWebviewProvider implements vscode.WebviewViewProvider {
@@ -68,8 +117,8 @@ class ImpaktrixWebviewProvider implements vscode.WebviewViewProvider {
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
-    private engine: ImpactEngine,
-    private explainer: ImpactExplainer
+    private explainer: ImpactExplainer,
+    private getEngine: () => ImpactEngine
   ) {}
 
   public resolveWebviewView(
@@ -84,6 +133,20 @@ class ImpaktrixWebviewProvider implements vscode.WebviewViewProvider {
     };
 
     webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
+    
+    webviewView.webview.onDidReceiveMessage((message) => {
+      if (message.type === 'navigateTo') {
+        const filePath = message.filePath;
+        const line = message.line;
+        vscode.workspace.openTextDocument(filePath).then(doc => {
+          vscode.window.showTextDocument(doc).then(editor => {
+             const range = new vscode.Range(line - 1, 0, line - 1, 0);
+             editor.selection = new vscode.Selection(range.start, range.end);
+             editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
+          });
+        });
+      }
+    });
 
     webviewView.webview.onDidReceiveMessage(data => {
       switch (data.type) {
@@ -115,10 +178,6 @@ class ImpaktrixWebviewProvider implements vscode.WebviewViewProvider {
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fira+Code&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="${styleUri}">
-    <script>
-      const vscode = acquireVsCodeApi();
-      window.vscode = vscode;
-    </script>
 </head>
 <body class="bg-transparent text-[var(--vscode-foreground)] overflow-hidden m-0 p-0">
     <div id="root"></div>

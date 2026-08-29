@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { ImpactAnalysis, RiskLevel } from '../extension/types';
-import { ShieldAlert, Layers, Info, Zap } from 'lucide-react';
+import { ShieldAlert, Layers, Info, Zap, ChevronRight, CheckCircle2 } from 'lucide-react';
+
+// Acquire VS Code API for sending messages back to the extension
+// @ts-ignore
+const vscode = typeof acquireVsCodeApi === 'function' ? acquireVsCodeApi() : { postMessage: (msg: any) => console.log('Mock postMessage:', msg) };
 
 const App: React.FC = () => {
   const [analysis, setAnalysis] = useState<ImpactAnalysis | null>(null);
@@ -66,13 +70,20 @@ const App: React.FC = () => {
                </div>
                <div className="space-y-2">
                   {analysis.impacts.map((imp, idx) => (
-                    <div key={idx} className="p-2 bg-[var(--vscode-editor-background)] border border-[var(--vscode-panel-border)] rounded group cursor-pointer hover:border-blue-500 transition-colors">
-                      <div className="text-xs flex justify-between font-medium">
-                        <span className="truncate">{imp.file}</span>
-                        <span className="opacity-60">L{imp.line}</span>
+                    <div 
+                      key={idx} 
+                      onClick={() => vscode.postMessage({ type: 'navigateTo', filePath: imp.file, line: imp.line })}
+                      className="p-3 bg-[var(--vscode-editor-background)] border border-[var(--vscode-panel-border)] rounded shadow-sm group cursor-pointer hover:border-[var(--vscode-focusBorder)] hover:bg-[var(--vscode-list-hoverBackground)] transition-all flex flex-col gap-2"
+                    >
+                      <div className="text-xs flex justify-between font-medium items-center">
+                        <span className="truncate font-semibold flex-1 group-hover:text-blue-400 transition-colors">{imp.file.split('/').pop()}</span>
+                        <span className="opacity-60 text-[10px] ml-2 shrink-0">Line {imp.line}</span>
                       </div>
-                      <div className="text-[10px] opacity-70 font-mono mt-1 truncate bg-[var(--vscode-editorWidget-background)] p-1 rounded">
-                        {imp.context}
+                      <div className="text-[10px] opacity-80 font-mono truncate bg-[var(--vscode-editorWidget-background)] p-1.5 rounded border border-[var(--vscode-widget-border)]">
+                        {imp.context.trim()}
+                      </div>
+                      <div className="text-[9px] text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-end font-medium">
+                        Click to navigate <ChevronRight size={10} />
                       </div>
                     </div>
                   ))}
@@ -80,12 +91,15 @@ const App: React.FC = () => {
             </div>
 
             {analysis.testSuggestions && analysis.testSuggestions.length > 0 && (
-              <div className="space-y-2 pt-2">
-                <div className="text-[10px] font-bold text-green-400 uppercase">Test Recommendations</div>
-                <div className="space-y-1">
+              <div className="space-y-2 pt-4 border-t border-[var(--vscode-panel-border)]">
+                <div className="text-[10px] font-bold text-green-400 uppercase flex items-center gap-1">
+                  <CheckCircle2 size={12} /> Test Recommendations
+                </div>
+                <div className="space-y-2 mt-2">
                   {analysis.testSuggestions.map((s, i) => (
-                    <div key={i} className="text-[11px] flex gap-2">
-                      <span className="text-green-500">•</span> {s}
+                    <div key={i} className="text-[11px] flex gap-2 items-start bg-[var(--vscode-editor-background)] p-2 rounded border border-[var(--vscode-panel-border)] shadow-sm">
+                      <span className="text-green-500 font-bold mt-0.5">•</span> 
+                      <span className="leading-snug opacity-90">{s}</span>
                     </div>
                   ))}
                 </div>
