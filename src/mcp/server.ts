@@ -11,8 +11,9 @@ import { ImpactEngine } from "../extension/core/ImpactEngine";
 import { ImpactExplainer } from "../extension/ai/ImpactExplainer";
 import * as fs from 'fs';
 
-const engine = new ImpactEngine(process.cwd());
-const explainer = new ImpactExplainer();
+const workspaceRoot = process.argv[2] || process.cwd();
+const engine = new ImpactEngine(workspaceRoot);
+const explainer = new ImpactExplainer(workspaceRoot);
 
 const server = new Server(
   {

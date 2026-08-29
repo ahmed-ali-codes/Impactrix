@@ -69,6 +69,7 @@ export class ImpactEngine {
     return {
       changedSymbol: symbol.name,
       file: filePath,
+      fileContent: content,
       impacts,
       categories: this.categorize(impacts),
       riskScore: impacts.length > 5 ? RiskLevel.HIGH : (impacts.length > 2 ? RiskLevel.MEDIUM : RiskLevel.LOW)

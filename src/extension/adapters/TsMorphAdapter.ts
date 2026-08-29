@@ -17,7 +17,7 @@ export class TsMorphAdapter implements LanguageAdapter {
         this.project = new Project({ tsConfigFilePath: tsconfigPath });
     } else {
         this.project = new Project();
-        this.project.addSourceFilesAtPaths(path.join(workspaceRoot, '**/*.{ts,tsx,js,jsx}'));
+        // Removed aggressive synchronous addSourceFilesAtPaths which causes hangs
     }
   }
 

@@ -31,6 +31,7 @@ export interface UsageInfo {
 export interface ImpactAnalysis {
   changedSymbol: string;
   file: string;
+  fileContent?: string;
   impacts: UsageInfo[];
   categories: ImpactCategory[];
   riskScore: RiskLevel;
