@@ -2,6 +2,8 @@
 
 See the impact before the change. IMPAKTRIX is a universal code impact analysis tool built as both a **VS Code Extension** and a **Model Context Protocol (MCP) Server**. It uses local dependency graph analysis combined with AI-powered reasoning to show you the "blast radius" of any code change.
 
+![IMPAKTRIX Extension Screenshot](media/screenshot.png)
+
 ## Features
 
 - **VS Code Extension**: Real-time detection of code changes in VS Code, with visual gutter icons and an interactive Impact Panel.
