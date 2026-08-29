@@ -2,7 +2,7 @@
   "mcpServers": {
     "impaktrix": {
       "command": "node",
-      "args": ["--env-file=.env", "${workspaceFolder}/out/mcp.js"]
+      "args": ["--env-file=${workspaceFolder}/.env", "${workspaceFolder}/out/mcp.js", "${workspaceFolder}"]
     }
   }
 }
