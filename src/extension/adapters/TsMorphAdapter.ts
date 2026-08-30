@@ -18,7 +18,20 @@ export class TsMorphAdapter implements LanguageAdapter {
         this.project = new Project({ tsConfigFilePath: tsconfigPath });
     } else {
         this.project = new Project();
-        // Removed aggressive synchronous addSourceFilesAtPaths which causes hangs
+    }
+  }
+
+  /**
+   * Register additional absolute file paths into the ts-morph project.
+   * Called by ImpactEngine.refreshGraph() so that files added mid-session
+   * (after construction) are picked up on the next graph population pass.
+   * Idempotent — files already tracked by the project are not re-added.
+   */
+  addWorkspaceFiles(filePaths: string[]): void {
+    for (const filePath of filePaths) {
+      if (this.supports(filePath) && !this.project.getSourceFile(filePath)) {
+        this.project.addSourceFileAtPathIfExists(filePath);
+      }
     }
   }
 
@@ -27,16 +40,13 @@ export class TsMorphAdapter implements LanguageAdapter {
   }
 
   extractSymbols(fileContent: string, filePath: string): SymbolInfo[] {
-    // If it's not in the project yet (e.g. new file), add it or update it
     let sourceFile = this.project.getSourceFile(filePath);
     if (!sourceFile) {
         sourceFile = this.project.addSourceFileAtPathIfExists(filePath);
     }
     if (sourceFile) {
-        // Refresh from file system if it changed outside of ts-morph's awareness
         sourceFile.refreshFromFileSystemSync();
     } else {
-        // Try creating it in memory if it doesn't exist
         sourceFile = this.project.createSourceFile(filePath, fileContent, { overwrite: true });
     }
 
@@ -101,11 +111,8 @@ export class TsMorphAdapter implements LanguageAdapter {
         for (const reference of refSymbol.getReferences()) {
             const refSourceFile = reference.getSourceFile();
             const refFilePath = refSourceFile.getFilePath();
-            // Include same-file usages — they are often the most critical case.
-            // isDirect = true means the reference is in a different file.
             const isDirect = refFilePath !== symbol.filePath;
 
-            // Skip the declaration itself (same file AND same line) to avoid noise.
             if (!isDirect && reference.getNode().getStartLineNumber() === symbol.line) continue;
 
             const node = reference.getNode();
@@ -132,8 +139,34 @@ export class TsMorphAdapter implements LanguageAdapter {
    * import declarations and register an edge: importingFile → importedFile.
    * This means getImpactedNodes(file) will return files that import `file`,
    * enabling true multi-hop transitive blast-radius computation.
+   *
+   * Bug 1 fix: when no tsconfig.json was found the Project starts with zero
+   * source files. We discover them here (lazily, at populate time) rather
+   * than at construction to avoid a synchronous startup hang. A ceiling of
+   * MAX_NO_TSCONFIG_FILES guards against extremely large repos.
    */
   populateGraph(graph: ImpactGraph): void {
+    // --- Bug 1 fix: discover workspace files when no tsconfig loaded any ---
+    if (this.project.getSourceFiles().length === 0 && this.workspaceRoot) {
+      const MAX_NO_TSCONFIG_FILES = 2000;
+      try {
+        const globPattern = path.join(this.workspaceRoot, '**/*.{ts,tsx,js,jsx}');
+        const discovered = this.project.addSourceFilesAtPaths(globPattern);
+        if (discovered.length > MAX_NO_TSCONFIG_FILES) {
+          // Too many files — remove excess and warn; analysis will be partial.
+          console.warn(
+            `[TsMorphAdapter] No tsconfig found and workspace contains ` +
+            `${discovered.length} TS/JS files — capping at ${MAX_NO_TSCONFIG_FILES} ` +
+            `to prevent hang. Add a tsconfig.json for full coverage.`
+          );
+          discovered.slice(MAX_NO_TSCONFIG_FILES).forEach(sf => sf.forget());
+        }
+      } catch (e) {
+        console.warn('[TsMorphAdapter] populateGraph: file discovery failed:', e);
+      }
+    }
+
+    // --- Core graph population ---
     graph.clear();
     const sourceFiles = this.project.getSourceFiles();
     for (const sourceFile of sourceFiles) {
