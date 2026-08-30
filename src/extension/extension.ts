@@ -44,46 +44,59 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
+  // Per-file debounce timers: we only run analysis after the user has stopped
+  // typing for DEBOUNCE_MS milliseconds, preventing a Gemini API call per keystroke.
+  const DEBOUNCE_MS = 500;
+  const debounceTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
+
   context.subscriptions.push(
     vscode.workspace.onDidChangeTextDocument(async (e) => {
-      // In a real scenario, use debouncing here.
-      // We use our naive change detector to find the changed line.
       const filePath = e.document.uri.fsPath;
       const content = e.document.getText();
-      
-      detector.onDidSave(filePath, content, async (line) => {
-        // Highlight in editor
-        const editor = vscode.window.visibleTextEditors.find(ed => ed.document.uri.fsPath === filePath);
-        if (editor) {
-          const range = new vscode.Range(line - 1, 0, line - 1, 0);
-          editor.setDecorations(impactDecorationType, [range]);
-        }
 
-        // Analyze and explain
-        if (!engine) engine = new ImpactEngine(workspaceRoot);
-        const analysis = engine.analyze(filePath, line);
+      // Clear any pending timer for this file and start a fresh one.
+      const existing = debounceTimers.get(filePath);
+      if (existing) clearTimeout(existing);
 
-        if (analysis) {
-          const ai = await explainer.explain(analysis);
-          analysis.explanation = ai.explanation;
-          analysis.testSuggestions = ai.testSuggestions;
-          
-          provider.sendAnalysis(analysis);
-          
-          // Show squiggly line and hover diagnostic
+      const timer = setTimeout(() => {
+        debounceTimers.delete(filePath);
+
+        detector.onDidSave(filePath, content, async (line) => {
+          // Highlight in editor
+          const editor = vscode.window.visibleTextEditors.find(ed => ed.document.uri.fsPath === filePath);
           if (editor) {
-            const range = new vscode.Range(line - 1, 0, line - 1, 100);
-            const diagnostic = new vscode.Diagnostic(
-              range,
-              `IMPAKTRIX: Changed symbol '${analysis.changedSymbol}'. ${analysis.impacts.length} usages affected. Risk: ${analysis.riskScore}\n\nClick to view full impact in sidebar.`,
-              vscode.DiagnosticSeverity.Warning
-            );
-            diagnosticCollection.set(editor.document.uri, [diagnostic]);
+            const range = new vscode.Range(line - 1, 0, line - 1, 0);
+            editor.setDecorations(impactDecorationType, [range]);
           }
-        } else {
-           if (editor) diagnosticCollection.set(editor.document.uri, []);
-        }
-      });
+
+          // Analyze and explain
+          if (!engine) engine = new ImpactEngine(workspaceRoot);
+          const analysis = engine.analyze(filePath, line);
+
+          if (analysis) {
+            const ai = await explainer.explain(analysis);
+            analysis.explanation = ai.explanation;
+            analysis.testSuggestions = ai.testSuggestions;
+            
+            provider.sendAnalysis(analysis);
+            
+            // Show squiggly line and hover diagnostic
+            if (editor) {
+              const range = new vscode.Range(line - 1, 0, line - 1, 100);
+              const diagnostic = new vscode.Diagnostic(
+                range,
+                `IMPAKTRIX: Changed symbol '${analysis.changedSymbol}'. ${analysis.impacts.length} usages affected. Risk: ${analysis.riskScore}\n\nClick to view full impact in sidebar.`,
+                vscode.DiagnosticSeverity.Warning
+              );
+              diagnosticCollection.set(editor.document.uri, [diagnostic]);
+            }
+          } else {
+             if (editor) diagnosticCollection.set(editor.document.uri, []);
+          }
+        });
+      }, DEBOUNCE_MS);
+
+      debounceTimers.set(filePath, timer);
     })
   );
 

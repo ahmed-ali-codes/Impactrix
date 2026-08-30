@@ -1,6 +1,7 @@
 import { Project, Node, SourceFile, SyntaxKind, ts } from 'ts-morph';
 import { LanguageAdapter } from './baseAdapter';
 import { SymbolInfo, UsageInfo, WorkspaceFile } from '../types';
+import { ImpactGraph } from '../core/ImpactGraph';
 import * as path from 'path';
 import * as fs from 'fs';
 
@@ -99,9 +100,13 @@ export class TsMorphAdapter implements LanguageAdapter {
     for (const refSymbol of referencedSymbols) {
         for (const reference of refSymbol.getReferences()) {
             const refSourceFile = reference.getSourceFile();
-            const isDirect = refSourceFile.getFilePath() !== symbol.filePath;
-            // Filter out self-references if we want cross-file impact
-            if (!isDirect) continue;
+            const refFilePath = refSourceFile.getFilePath();
+            // Include same-file usages — they are often the most critical case.
+            // isDirect = true means the reference is in a different file.
+            const isDirect = refFilePath !== symbol.filePath;
+
+            // Skip the declaration itself (same file AND same line) to avoid noise.
+            if (!isDirect && reference.getNode().getStartLineNumber() === symbol.line) continue;
 
             const node = reference.getNode();
             const parentStmt = node.getFirstAncestorByKind(ts.SyntaxKind.ExpressionStatement) 
@@ -110,14 +115,38 @@ export class TsMorphAdapter implements LanguageAdapter {
             
             usages.push({
                 symbolName: symbol.name,
-                file: refSourceFile.getFilePath(),
+                file: refFilePath,
                 line: node.getStartLineNumber(),
                 context: parentStmt ? parentStmt.getText().split('\n')[0] : node.getText(),
-                isDirect: true
+                isDirect
             });
         }
     }
 
     return usages;
+  }
+
+  /**
+   * Seed the ImpactGraph with cross-file import relationships.
+   * For every source file in the ts-morph project, we follow its static
+   * import declarations and register an edge: importingFile → importedFile.
+   * This means getImpactedNodes(file) will return files that import `file`,
+   * enabling true multi-hop transitive blast-radius computation.
+   */
+  populateGraph(graph: ImpactGraph): void {
+    graph.clear();
+    const sourceFiles = this.project.getSourceFiles();
+    for (const sourceFile of sourceFiles) {
+      const importingPath = sourceFile.getFilePath();
+      for (const importDecl of sourceFile.getImportDeclarations()) {
+        const resolved = importDecl.getModuleSpecifierSourceFile();
+        if (resolved) {
+          // Edge: importingPath depends on resolvedPath.
+          // addDependency(from=importingPath, to=resolvedPath) means:
+          // "importingPath is a caller/dependent of resolvedPath".
+          graph.addDependency(importingPath, resolved.getFilePath());
+        }
+      }
+    }
   }
 }

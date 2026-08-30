@@ -3,7 +3,7 @@
   "displayName": "IMPAKTRIX",
   "description": "See the impact before the change. Universal code impact analysis.",
   "version": "1.0.0",
-  "publisher": "your-name-or-org",
+  "publisher": "impactrix",
   "engines": {
     "vscode": "^1.80.0"
   },

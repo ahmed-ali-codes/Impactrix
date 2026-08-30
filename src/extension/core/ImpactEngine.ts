@@ -17,6 +17,13 @@ export class ImpactEngine {
     this.workspaceRoot = workspaceRoot;
     this.adapters = [new TsMorphAdapter(workspaceRoot), new LspAdapter(), new UniversalAdapter()];
     this.adapters.sort((a, b) => b.priority - a.priority);
+    // Seed the transitive dependency graph from every adapter that can provide
+    // import-level dependency data (currently TsMorphAdapter).
+    for (const adapter of this.adapters) {
+      if (typeof adapter.populateGraph === 'function') {
+        adapter.populateGraph(this.graph);
+      }
+    }
   }
 
   // We no longer manually update workspace with string arrays for the AST parser,

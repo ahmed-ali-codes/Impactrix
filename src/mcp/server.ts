@@ -64,7 +64,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     try {
       if (!fs.existsSync(filePath)) {
           return {
-              content: [{ type: "text", text: `Error: File not found at path \${filePath}` }],
+              content: [{ type: "text", text: `Error: File not found at path ${filePath}` }],
               isError: true,
           };
       }
@@ -89,13 +89,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       };
     } catch (error: any) {
       return {
-        content: [{ type: "text", text: `Error analyzing impact: \${error.message}` }],
+        content: [{ type: "text", text: `Error analyzing impact: ${error.message}` }],
         isError: true,
       };
     }
   }
 
-  throw new Error(`Tool not found: \${request.params.name}`);
+  throw new Error(`Tool not found: ${request.params.name}`);
 });
 
 async function run() {
