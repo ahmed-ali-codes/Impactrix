@@ -71,6 +71,18 @@ export function activate(context: vscode.ExtensionContext) {
 
           // Analyze and explain
           if (!engine) engine = new ImpactEngine(workspaceRoot);
+
+          // Build a workspace snapshot so UniversalAdapter (used for HTML,
+          // CSS, etc.) can find usages across all currently open documents.
+          const workspaceSnapshot = vscode.workspace.textDocuments
+            .filter(doc => doc.uri.scheme === 'file')
+            .map(doc => ({ path: doc.uri.fsPath, content: doc.getText() }));
+          // Ensure the actively changing file is included with its latest content.
+          if (!workspaceSnapshot.find(f => f.path === filePath)) {
+            workspaceSnapshot.push({ path: filePath, content });
+          }
+          engine.updateWorkspace(workspaceSnapshot);
+
           const analysis = engine.analyze(filePath, line);
 
           if (analysis) {

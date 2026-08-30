@@ -11,7 +11,9 @@ export class ImpactExplainer {
   }
 
   async explain(analysis: ImpactAnalysis): Promise<{ explanation: string; testSuggestions: string[] }> {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || "dummy_key_to_avoid_init_error" });
+    // Support both GEMINI_API_KEY (documented in .env.example) and legacy API_KEY.
+    const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || "dummy_key_to_avoid_init_error";
+    const ai = new GoogleGenAI({ apiKey });
 
     try {
       const response = await ai.models.generateContent({
