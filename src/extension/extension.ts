@@ -76,10 +76,10 @@ export function activate(context: vscode.ExtensionContext) {
           // CSS, etc.) can find usages across all currently open documents.
           const workspaceSnapshot = vscode.workspace.textDocuments
             .filter(doc => doc.uri.scheme === 'file')
-            .map(doc => ({ path: doc.uri.fsPath, content: doc.getText() }));
+            .map(doc => ({ path: doc.uri.fsPath, content: doc.getText(), language: doc.languageId }));
           // Ensure the actively changing file is included with its latest content.
           if (!workspaceSnapshot.find(f => f.path === filePath)) {
-            workspaceSnapshot.push({ path: filePath, content });
+            workspaceSnapshot.push({ path: filePath, content, language: e.document.languageId });
           }
           engine.updateWorkspace(workspaceSnapshot);
 
