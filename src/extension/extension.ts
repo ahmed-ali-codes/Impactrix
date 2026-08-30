@@ -112,6 +112,18 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
+  // Bug 2 fix: refresh the dependency graph on every TS/JS file save.
+  // Saves are the natural trigger point — import statements (which define
+  // graph edges) only change meaningfully when the user saves, not on every
+  // keystroke. This keeps refreshGraph() off the hot path.
+  context.subscriptions.push(
+    vscode.workspace.onDidSaveTextDocument((doc) => {
+      if (engine && /\.(ts|tsx|js|jsx)$/.test(doc.uri.fsPath)) {
+        engine.refreshGraph();
+      }
+    })
+  );
+
   // Add a Hover provider to make the diagnostic more prominent
   context.subscriptions.push(
     vscode.languages.registerHoverProvider({ scheme: 'file' }, {

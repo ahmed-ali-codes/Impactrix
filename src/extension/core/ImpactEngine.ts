@@ -30,7 +30,33 @@ export class ImpactEngine {
   // but we keep this signature in case UniversalAdapter still needs it for non-TS files.
   updateWorkspace(workspace: WorkspaceFile[]) {
     this.workspace = workspace;
-    // We rely on AST parser for graph building now for TS/JS files.
+    // Bug 2 fix: re-seed the graph whenever the workspace snapshot changes so
+    // that files and imports added after construction are reflected immediately.
+    this.refreshGraph();
+  }
+
+  /**
+   * Rebuild the transitive dependency graph from the current state of all
+   * adapters. Call this after the workspace snapshot changes (already wired
+   * through updateWorkspace) or after a file save (triggered from extension.ts).
+   *
+   * Two things happen in order:
+   *  1. addWorkspaceFiles — push the current set of known paths into each
+   *     adapter so newly-created files (not yet in ts-morph's Project) are
+   *     registered before graph traversal begins.
+   *  2. populateGraph — rebuild graph edges from scratch for each adapter
+   *     that can provide import-level dependency data.
+   */
+  refreshGraph(): void {
+    const knownPaths = this.workspace.map(f => f.path);
+    for (const adapter of this.adapters) {
+      if (typeof adapter.addWorkspaceFiles === 'function') {
+        adapter.addWorkspaceFiles(knownPaths);
+      }
+      if (typeof adapter.populateGraph === 'function') {
+        adapter.populateGraph(this.graph);
+      }
+    }
   }
 
   analyze(filePath: string, line: number): ImpactAnalysis | null {
