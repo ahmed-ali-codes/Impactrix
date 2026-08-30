@@ -4,6 +4,10 @@
   "description": "See the impact before the change. Universal code impact analysis.",
   "version": "1.0.0",
   "publisher": "impactrix",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ahmed-ali-codes/Impactrix.git"
+  },
   "engines": {
     "vscode": "^1.80.0"
   },
